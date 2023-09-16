@@ -94,12 +94,13 @@ class TCLabExperiment:
         print(message)
         self.lab.Q1(0)
         self.lab.Q2(0)
+        self.lab.LED(0)
         self.lab.close()
         DataSaver.save_txt(self.tm, self.Q1, self.T1, self.data_name)
         plt.savefig(self.figure_name)
 
 if __name__ == "__main__":
-    time = 15.0
+    time_duration = 15.0
     step = 50
-    experiment = TCLabExperiment(time, step)
+    experiment = TCLabExperiment(time_duration, step)
     experiment.run()
