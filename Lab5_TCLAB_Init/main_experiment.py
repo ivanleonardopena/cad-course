@@ -16,7 +16,7 @@ class TCLabExperiment:
         self.lab = tclab.TCLab_CAE()
         self.run_time = time                         # Run time in minutes
         self.loops = int(60.0 * self.run_time)       # Transform into the Number of cycles
-        
+        self.k = 1                                   # instant k
         self.T1 = np.ones(self.loops) * self.lab.T1  # Temperature (C)
         self.Q1 = np.zeros(self.loops)               # impulse tests (0 - 100%)
         self.tm = np.zeros(self.loops)
@@ -54,6 +54,7 @@ class TCLabExperiment:
         prev_time = start_time
 
         for k in range(1, self.loops):
+            self.k = k
             sleep_max = 1.0
             sleep = sleep_max - (time.time() - prev_time)
             if sleep >= 0.01:
@@ -96,7 +97,8 @@ class TCLabExperiment:
         self.lab.Q2(0)
         self.lab.LED(0)
         self.lab.close()
-        DataSaver.save_txt(self.tm, self.Q1, self.T1, self.data_name)
+        k = self.k
+        DataSaver.save_txt(self.tm[:k], self.Q1[:k], self.T1[:k], self.data_name)
         plt.savefig(self.figure_name)
 
 if __name__ == "__main__":
