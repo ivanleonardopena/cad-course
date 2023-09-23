@@ -5,8 +5,10 @@ Solución de EDO
 @author: Sergio
 """
 from scipy.integrate import solve_ivp
+from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 class OsciladorVanDerPol:
     def __init__(self, x0, u, mu, t_span, metodo = 'Radau', time_eval = None):
@@ -15,7 +17,8 @@ class OsciladorVanDerPol:
         self.mu = mu
         self.t_span = t_span
         self.metodo = metodo
-        self.time_eval = time_eval 
+        self.time_eval = time_eval
+        self.data = None
 
     def vanderpol(self, t, x, u, mu):
         #Renombrar las salidas
@@ -41,6 +44,34 @@ class OsciladorVanDerPol:
         plt.xlabel('Tiempo (s)')
         plt.ylabel('posición')
         plt.show()
+        
+    def set_data(self, data_base):
+        self.data = data_base
+        
+    def calcular_posicion_osc(self, par):
+        y0 = np.array(self.x0)
+        ym = np.ones(len(self.time_eval)) * self.x0[0] #Posicion
+        for i in range(len(self.time_eval)-1):
+            ts = [self.time_eval[i], self.time_eval[i+1]]
+            sol = solve_ivp(self.vanderpol, ts, y0, method=self.metodo, args=(self.u, par[0]))
+            y0 = sol.y[:,-1] #[posicion, velocidad]
+            ym[i+1] = y0[0]
+        return ym 
+        
+    def fun_obj(self, par):
+        x = self.calcular_posicion_osc(par)
+        j = np.sum( ((self.data - x)/self.data )**2 )
+        return j
+        
+        
+    def optimize(self):
+        #Variable de desicion (mu)
+        p = [self.mu]
+        sol = minimize(self.fun_obj, p, method='SLSQP', bounds=None)
+        self.mu = sol.x[0]
+        return sol
+        
+        
 
 if __name__ == '__main__':
     rigido = False
@@ -59,5 +90,44 @@ if __name__ == '__main__':
         metodo = 'RK45'
 
     oscilador = OsciladorVanDerPol(x0, u, mu, t_span, metodo, time_eval)
+    
+    #Cargar la base de datos
+    data = np.loadtxt('data_vanderpol.txt', delimiter=',', skiprows = 1)
+    t = data[:,0].T
+    xreal = data[:,1].T
+    
+    #Actualizar los datos de mi instancia
+    oscilador.set_data(xreal)
+    oscilador.t_span = [t[0], t[-1]]
+    oscilador.time_eval = t
+    
+    #Resolvemos la EDO inicial cuando no hemos optimizado
     oscilador.resolver()
-    oscilador.graficar()
+    xinit = np.copy(oscilador.y)
+    
+    #Costo inicial antes de la optimización
+    j_init = oscilador.fun_obj([mu])
+    print(f'The initial cost is {j_init}')
+    
+    #Proceso de Optimización
+    solution = oscilador.optimize()
+    print(solution)
+    print(f'The optimize mu is {oscilador.mu}')
+    
+    #Costo final despues de la optimización
+    j_fin = oscilador.fun_obj([oscilador.mu])
+    print(f'The initial cost is {j_fin}')
+    
+    oscilador.resolver()
+    xfin = np.copy(oscilador.y)
+    
+    
+    
+    #Grafica comparación (posicion)
+    plt.plot(t, xinit[0], 'b:', linewidth=3,label='Initial Guess')
+    plt.plot(t, xreal, 'r-', linewidth=3,label='from data')
+    plt.plot(t, xfin[0], 'k--', linewidth=3,label='Final prediction')
+    plt.legend(loc='best')
+    plt.xlabel('Tiempo (s)')
+    plt.ylabel('posición')
+    plt.show()
